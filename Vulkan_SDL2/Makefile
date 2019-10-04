@@ -1,2 +1,3 @@
+CC = gcc
 all:
-	gcc main.c -g -Wall -Wpedantic -o main -lSDL2 -lvulkan
+	$(CC) main.c -g -Wall -pedantic -o vulkan -lSDL2 -lvulkan
