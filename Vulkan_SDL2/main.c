@@ -38,22 +38,22 @@ int main(void)
 	static char const * instance_layers [] = {"VK_LAYER_LUNARG_standard_validation"};
 
 	VkInstanceCreateInfo instance_create_info = {
-		.sType 						= VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-		.pNext 						= NULL,
-		.flags 						= 0,
+		.sType 				= VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+		.pNext 				= NULL,
+		.flags 				= 0,
 		.pApplicationInfo = &(VkApplicationInfo){
-			.sType 					= VK_STRUCTURE_TYPE_APPLICATION_INFO,
-			.pNext 					= NULL,
-			.pApplicationName 		= vulkan_window_title,
+			.sType 			= VK_STRUCTURE_TYPE_APPLICATION_INFO,
+			.pNext 			= NULL,
+			.pApplicationName 	= vulkan_window_title,
 			.applicationVersion 	= VK_MAKE_VERSION(0, 0, 1),
-			.pEngineName 			= "No name",
-			.engineVersion 			= VK_MAKE_VERSION(0, 0, 1),
-			.apiVersion 			= VK_MAKE_VERSION(1, 0, 21),
+			.pEngineName 		= "No name",
+			.engineVersion 		= VK_MAKE_VERSION(0, 0, 1),
+			.apiVersion 		= VK_MAKE_VERSION(1, 0, 21),
 		},
 #ifdef NDEBUG
-		.enabledLayerCount 			= 0,
+		.enabledLayerCount 		= 0,
 #else
-		.enabledLayerCount 			= sizeof(instance_layers) / sizeof(instance_layers[0]),
+		.enabledLayerCount 		= sizeof(instance_layers) / sizeof(instance_layers[0]),
 		.ppEnabledLayerNames 		= instance_layers,
 #endif
 		.enabledExtensionCount 		= instance_extensions_count,
@@ -83,23 +83,23 @@ int main(void)
 	char const * device_extensions [] = {"VK_KHR_swapchain"};
 
 	VkDeviceCreateInfo device_create_info = {
-		.sType 						= VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		.pNext 						= NULL,
-		.flags 						= 0,
+		.sType 				= VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+		.pNext 				= NULL,
+		.flags 				= 0,
 		.queueCreateInfoCount 		= 1,
 		.pQueueCreateInfos = &(VkDeviceQueueCreateInfo){
-			.sType 					= VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-			.pNext 					= NULL,
-			.flags 					= 0,
-			.queueFamilyIndex 		= 0,
-			.queueCount 			= 1,
+			.sType 			= VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			.pNext 			= NULL,
+			.flags 			= 0,
+			.queueFamilyIndex 	= 0,
+			.queueCount 		= 1,
 			.pQueuePriorities 		= (const float []){1.0f},
 		},
-		.enabledLayerCount 			= 1,
+		.enabledLayerCount 		= 1,
 		.ppEnabledLayerNames 		= instance_layers,
 		.enabledExtensionCount 		= sizeof(device_extensions) / sizeof(device_extensions[0]),
 		.ppEnabledExtensionNames 	= device_extensions,
-		.pEnabledFeatures 			= NULL,
+		.pEnabledFeatures 		= NULL,
 	};
 
 	assert(vkCreateDevice(physical_device, &device_create_info, NULL, &vulkan_device) == VK_SUCCESS);
@@ -131,27 +131,27 @@ int main(void)
 	vulkan_window_height = clamp(vulkan_window_height, surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height);
 
 	VkSwapchainCreateInfoKHR swapchain_create_info = {
-		.sType 						= VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-		.pNext 						= NULL,
-		.flags 						= 0,
-		.surface 					= vulkan_surface,
-		.minImageCount 				= surface_capabilities.minImageCount,
-		.imageFormat 				= swapchain_image_format,
-		.imageColorSpace 			= swapchain_color_space,
+		.sType 				= VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+		.pNext 				= NULL,
+		.flags 				= 0,
+		.surface 			= vulkan_surface,
+		.minImageCount 			= surface_capabilities.minImageCount,
+		.imageFormat 			= swapchain_image_format,
+		.imageColorSpace 		= swapchain_color_space,
 		.imageExtent = {
-			.width 					= vulkan_window_width,
-			.height 				= vulkan_window_height
+			.width 			= vulkan_window_width,
+			.height 		= vulkan_window_height
 		},
-		.imageArrayLayers 			= 1,
-		.imageUsage 				= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-		.imageSharingMode 			= VK_SHARING_MODE_EXCLUSIVE,
+		.imageArrayLayers 		= 1,
+		.imageUsage 			= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+		.imageSharingMode 		= VK_SHARING_MODE_EXCLUSIVE,
 		.queueFamilyIndexCount 		= 0,
 		.pQueueFamilyIndices 		= NULL,
-		.preTransform 				= surface_capabilities.currentTransform,
-		.compositeAlpha 			= VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-		.presentMode 				= VK_PRESENT_MODE_FIFO_KHR,
-		.clipped 					= VK_TRUE,
-		.oldSwapchain 				= NULL,
+		.preTransform 			= surface_capabilities.currentTransform,
+		.compositeAlpha 		= VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+		.presentMode 			= VK_PRESENT_MODE_FIFO_KHR,
+		.clipped 			= VK_TRUE,
+		.oldSwapchain 			= NULL,
 	};
 
 	assert(vkCreateSwapchainKHR(vulkan_device, &swapchain_create_info, NULL, &vulkan_swapchain) == VK_SUCCESS);
@@ -167,24 +167,24 @@ int main(void)
 	for (uint32_t i = 0; i < swapchain_images_count; ++i) {
 
 		VkImageViewCreateInfo image_view_create_info = {
-			.sType 					= VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-			.pNext 					= NULL,
-			.flags 					= 0,
-			.image 					= swapchain_images[i],
-			.viewType 				= VK_IMAGE_VIEW_TYPE_2D,
-			.format 				= swapchain_image_format,
+			.sType 			= VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.pNext 			= NULL,
+			.flags 			= 0,
+			.image 			= swapchain_images[i],
+			.viewType 		= VK_IMAGE_VIEW_TYPE_2D,
+			.format 		= swapchain_image_format,
 			.components = {
-				.r 					= VK_COMPONENT_SWIZZLE_IDENTITY,
-				.g 					= VK_COMPONENT_SWIZZLE_IDENTITY,
-				.b 					= VK_COMPONENT_SWIZZLE_IDENTITY,
-				.a 					= VK_COMPONENT_SWIZZLE_IDENTITY
+				.r 		= VK_COMPONENT_SWIZZLE_IDENTITY,
+				.g 		= VK_COMPONENT_SWIZZLE_IDENTITY,
+				.b 		= VK_COMPONENT_SWIZZLE_IDENTITY,
+				.a 		= VK_COMPONENT_SWIZZLE_IDENTITY
 			},
 			.subresourceRange = {
-				.aspectMask 		= VK_IMAGE_ASPECT_COLOR_BIT,
-				.baseMipLevel 		= 0,
-				.levelCount 		= 1,
-				.baseArrayLayer 	= 0,
-				.layerCount 		= 1
+				.aspectMask 	= VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel 	= 0,
+				.levelCount 	= 1,
+				.baseArrayLayer = 0,
+				.layerCount 	= 1
 			}
 		};
 
@@ -196,110 +196,110 @@ int main(void)
 	VkShaderModule frag_shader_module = VLK_CreateShaderModule("./frag.spv");
 
 	VkPipelineShaderStageCreateInfo vert_shader_stage_info = {
-		.sType 						= VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage 						= VK_SHADER_STAGE_VERTEX_BIT,
-		.module 					= vert_shader_module,
-		.pName 						= "main"
+		.sType 				= VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		.stage 				= VK_SHADER_STAGE_VERTEX_BIT,
+		.module 			= vert_shader_module,
+		.pName 				= "main"
 	};
 
 	VkPipelineShaderStageCreateInfo frag_shader_stage_info = {
-		.sType 						= VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage 						= VK_SHADER_STAGE_FRAGMENT_BIT,
-		.module 					= vert_shader_module,
-		.pName 						= "main"
+		.sType 				= VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		.stage 				= VK_SHADER_STAGE_FRAGMENT_BIT,
+		.module 			= vert_shader_module,
+		.pName 				= "main"
 	};
 
 	VkPipelineShaderStageCreateInfo shader_stages[] = {vert_shader_stage_info, frag_shader_stage_info};
 
 	VkPipelineVertexInputStateCreateInfo vert_input_info = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 0,
-		.pVertexBindingDescriptions = NULL,
+		.sType 				= VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+		.vertexBindingDescriptionCount 	= 0,
+		.pVertexBindingDescriptions 	= NULL,
 		.vertexAttributeDescriptionCount = 0,
-		.pVertexAttributeDescriptions = NULL
+		.pVertexAttributeDescriptions 	= NULL
 	};
 
 	VkPipelineInputAssemblyStateCreateInfo input_assembly = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		.primitiveRestartEnable = VK_FALSE
+		.sType 				= VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+		.topology 			= VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		.primitiveRestartEnable 	= VK_FALSE
 	};
 
 	VkPipelineViewportStateCreateInfo viewport_state = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		.viewportCount 				= 1,
+		.viewportCount 			= 1,
 		.pViewports = &(VkViewport) {
-			.x 						= 0.0f,
-			.y 						= 0.0f,
-			.width 					= (float) vulkan_window_width,
-			.height 				= (float) vulkan_window_height,
-			.minDepth 				= 0.0f,
-			.maxDepth 				= 1.0f
+			.x 			= 0.0f,
+			.y 			= 0.0f,
+			.width 			= (float) vulkan_window_width,
+			.height 		= (float) vulkan_window_height,
+			.minDepth 		= 0.0f,
+			.maxDepth 		= 1.0f
 		},
-		.scissorCount 				= 1,
+		.scissorCount 			= 1,
 		.pScissors = &(VkRect2D){
 			.offset = {
-				.x 					= 0,
-				.y 					= 0
+				.x 		= 0,
+				.y 		= 0
 			},
 			.extent = {
-				.width 				= vulkan_window_width,
-				.height 			= vulkan_window_height
+				.width 		= vulkan_window_width,
+				.height 	= vulkan_window_height
 			}
 		}
 	};
 
 	VkPipelineRasterizationStateCreateInfo vulkan_rasterizer = {
-		.sType 						= VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		.depthClampEnable 			= VK_FALSE,
-		.polygonMode 				= VK_POLYGON_MODE_FILL,
-		.lineWidth 					= 1.0f,
-		.cullMode 					= VK_CULL_MODE_BACK_BIT,
-		.frontFace 					= VK_FRONT_FACE_CLOCKWISE,
-		.depthBiasEnable 			= VK_FALSE,
+		.sType 				= VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+		.depthClampEnable 		= VK_FALSE,
+		.polygonMode 			= VK_POLYGON_MODE_FILL,
+		.lineWidth 			= 1.0f,
+		.cullMode 			= VK_CULL_MODE_BACK_BIT,
+		.frontFace 			= VK_FRONT_FACE_CLOCKWISE,
+		.depthBiasEnable 		= VK_FALSE,
 		.depthBiasConstantFactor 	= 0.0f,
-		.depthBiasClamp 			= 0.0f,
+		.depthBiasClamp 		= 0.0f,
 		.depthBiasSlopeFactor 		= 0.0f
 	};
 
 	VkPipelineMultisampleStateCreateInfo vulkan_multisampling = {
-		.sType 						= VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+		.sType 				= VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
 		.sampleShadingEnable 		= VK_FALSE,
 		.rasterizationSamples 		= VK_SAMPLE_COUNT_1_BIT,
-		.minSampleShading 			= 1.0f,
-		.pSampleMask 				= NULL,
+		.minSampleShading 		= 1.0f,
+		.pSampleMask 			= NULL,
 		.alphaToCoverageEnable 		= VK_FALSE,
-		.alphaToOneEnable 			= VK_FALSE
+		.alphaToOneEnable 		= VK_FALSE
 	};
 
 	VkPipelineColorBlendAttachmentState color_blend_attachment  = {
-		.colorWriteMask 			= VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-		.blendEnable 				= VK_FALSE,
+		.colorWriteMask 		= VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+		.blendEnable 			= VK_FALSE,
 		.srcColorBlendFactor 		= VK_BLEND_FACTOR_ONE,
 		.dstColorBlendFactor 		= VK_BLEND_FACTOR_ZERO,
-		.colorBlendOp 				= VK_BLEND_OP_ADD,
+		.colorBlendOp 			= VK_BLEND_OP_ADD,
 		.srcAlphaBlendFactor 		= VK_BLEND_FACTOR_ONE,
 		.dstAlphaBlendFactor 		= VK_BLEND_FACTOR_ZERO,
-		.alphaBlendOp 				= VK_BLEND_OP_ADD
+		.alphaBlendOp 			= VK_BLEND_OP_ADD
 	};
 
 
 	VkPipelineLayoutCreateInfo pipeline_layout_info = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = 0, // Optional
-		.pSetLayouts = NULL, // Optional
-		.pushConstantRangeCount = 0, // Optional
-		.pPushConstantRanges = NULL  // Optional
+		.sType 				= VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.setLayoutCount 		= 0, // Optional
+		.pSetLayouts 			= NULL, // Optional
+		.pushConstantRangeCount 	= 0, // Optional
+		.pPushConstantRanges 		= NULL  // Optional
 	};
 
 	VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
 	assert(vkCreatePipelineLayout(vulkan_device, &pipeline_layout_info, NULL, &pipeline_layout) == VK_SUCCESS);
 
 	VkAttachmentDescription color_attachment = {
-		.format = swapchain_image_format,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-		.storeOp = VK_ATTACHMENT_STORE_OP_STORE
+		.format 			= swapchain_image_format,
+		.samples 			= VK_SAMPLE_COUNT_1_BIT,
+		.loadOp 			= VK_ATTACHMENT_LOAD_OP_CLEAR,
+		.storeOp 			= VK_ATTACHMENT_STORE_OP_STORE
 	};
 
 	bool quit = false;
