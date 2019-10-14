@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <stdbool.h>
+
 #include <SDL2/SDL.h>
 #include <vulkan/vulkan.h>
 #include <SDL2/SDL_vulkan.h>
@@ -235,6 +236,22 @@ int main(void)
 	VkRenderPass render_pass = VK_NULL_HANDLE;
 	assert(vkCreateRenderPass(vulkan_device, &render_pass_info, NULL, &render_pass) == VK_SUCCESS);
 
+	VkFramebuffer swapchain_frame_buffers[swapchain_images_count];
+
+	for (uint32_t i = 0; i < swapchain_images_count; ++i) {
+
+		VkFramebufferCreateInfo framebuffer_info = {
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.renderPass = render_pass,
+			.attachmentCount = 1,
+			.pAttachments = &swapchain_images_views[i],
+			.width = vulkan_window_width,
+			.height = vulkan_window_height,
+			.layers = 1
+		};
+		assert(vkCreateFramebuffer(vulkan_device, &framebuffer_info, NULL, &swapchain_frame_buffers[i]) == VK_SUCCESS);
+	}
+
 	VkPipelineLayoutCreateInfo pipeline_layout_info = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = 0, // Optional
@@ -245,7 +262,6 @@ int main(void)
 
 	VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
 	assert(vkCreatePipelineLayout(vulkan_device, &pipeline_layout_info, NULL, &pipeline_layout) == VK_SUCCESS);
-
 
 	VkGraphicsPipelineCreateInfo pipeline_info = {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -339,6 +355,61 @@ int main(void)
 	VkPipeline graphics_pipeline = VK_NULL_HANDLE;
 	assert(vkCreateGraphicsPipelines(vulkan_device, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &graphics_pipeline) == VK_SUCCESS);
 
+
+	VkCommandPoolCreateInfo pool_info = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.queueFamilyIndex = 0,
+		.flags = 0 // Optional
+	};
+
+	VkCommandPool command_pool = VK_NULL_HANDLE;
+	assert(vkCreateCommandPool(vulkan_device, &pool_info, NULL, &command_pool) == VK_SUCCESS);
+
+	VkCommandBufferAllocateInfo alloc_info = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.commandPool = command_pool,
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		.commandBufferCount = swapchain_images_count
+	};
+
+	VkCommandBuffer command_buffers[swapchain_images_count];
+	assert(vkAllocateCommandBuffers(vulkan_device, &alloc_info, command_buffers) == VK_SUCCESS);
+
+	for (size_t i = 0; i < swapchain_images_count; i++) {
+
+		VkCommandBufferBeginInfo begin_info = {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.flags = 0, // Optional
+			.pInheritanceInfo = NULL // Optional
+		};
+		assert(vkBeginCommandBuffer(command_buffers[i], &begin_info) == VK_SUCCESS);
+	}
+
+	VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+
+	for (uint32_t i = 0; i < swapchain_images_count; ++i) {
+
+		VkRenderPassBeginInfo render_pass_info = {
+			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+			.renderPass = render_pass,
+			.framebuffer = swapchain_frame_buffers[i],
+			.renderArea.offset.x = 0.0f,
+			.renderArea.offset.y = 0.0f,
+			.renderArea.extent.width = vulkan_window_width,
+			.renderArea.extent.height = vulkan_window_height,
+			.clearValueCount = 1,
+			.pClearValues = &clear_color
+
+		};
+
+		vkCmdBeginRenderPass(command_buffers[i], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBindPipeline(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
+		vkCmdDraw(command_buffers[i], 3, 1, 0, 0);
+		vkCmdEndRenderPass(command_buffers[i]);
+
+		assert(vkEndCommandBuffer(command_buffers[i]) == VK_SUCCESS);
+	}
+
 	bool quit = false;
 	SDL_Event event;
 	while( !quit ){
@@ -351,7 +422,10 @@ int main(void)
 
 	for (uint32_t i = 0; i < swapchain_images_count; ++i) {
 		vkDestroyImageView(vulkan_device, swapchain_images_views[i], NULL);
+		vkDestroyFramebuffer(vulkan_device, swapchain_frame_buffers[i], NULL);
 	}
+
+	vkDestroyCommandPool(vulkan_device, command_pool, NULL);
 	vkDestroyPipeline(vulkan_device, graphics_pipeline, NULL);
 	vkDestroyPipelineLayout(vulkan_device, pipeline_layout, NULL);
 	vkDestroyRenderPass(vulkan_device, render_pass, NULL);
