@@ -71,6 +71,8 @@ int main(void)
 	uint32_t queue_family_count = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, NULL);
 
+	printf("Que family count %d\n", queue_family_count);
+
 	VkQueueFamilyProperties queue_family_properties[queue_family_count];
 	assert(queue_family_count);
 
@@ -88,7 +90,7 @@ int main(void)
 		.pNext = NULL,
 		.flags = 0,
 		.queueCreateInfoCount = 1,
-		.pQueueCreateInfos = &(VkDeviceQueueCreateInfo){
+		.pQueueCreateInfos = &(VkDeviceQueueCreateInfo) {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 			.pNext = NULL,
 			.flags = 0,
@@ -104,6 +106,9 @@ int main(void)
 	};
 
 	assert(vkCreateDevice(physical_device, &device_create_info, NULL, &vulkan_device) == VK_SUCCESS);
+	
+	VkQueue device_queue = VK_NULL_HANDLE;
+	vkGetDeviceQueue(vulkan_device,0, 0, &device_queue); //pick que family of index 0
 
 	uint32_t surface_formats_count = 0;
 	vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, vulkan_surface, &surface_formats_count, NULL);
@@ -230,7 +235,17 @@ int main(void)
 				.attachment = 0,
 				.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 			}
+		},
+		.dependencyCount = 1,
+		.pDependencies = &(VkSubpassDependency){
+			.srcSubpass = VK_SUBPASS_EXTERNAL,
+			.dstSubpass = 0,
+			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.srcAccessMask = 0,
+			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
 		}
+
 	};
 
 	VkRenderPass render_pass = VK_NULL_HANDLE;
@@ -358,7 +373,7 @@ int main(void)
 
 	VkCommandPoolCreateInfo pool_info = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-		.queueFamilyIndex = 0,
+		.queueFamilyIndex = 0, //assuming one graphics queue family
 		.flags = 0 // Optional
 	};
 
@@ -410,20 +425,85 @@ int main(void)
 		assert(vkEndCommandBuffer(command_buffers[i]) == VK_SUCCESS);
 	}
 
+
+	VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+
+	VkSemaphore image_available_semaphore = VK_NULL_HANDLE;
+	assert(vkCreateSemaphore(vulkan_device, &semaphore_info, NULL, &image_available_semaphore) == VK_SUCCESS);
+
+	VkSemaphore render_finished_semaphore = VK_NULL_HANDLE;
+	assert(vkCreateSemaphore(vulkan_device, &semaphore_info, NULL, &render_finished_semaphore) == VK_SUCCESS);
+	
+
 	bool quit = false;
 	SDL_Event event;
 	while( !quit ){
 		while( SDL_PollEvent( &event ) != 0 ){
-			if( event.type == SDL_QUIT ){
-				quit = true;
+			switch (event.type) {
+				case SDL_QUIT:
+					quit = true;
+					break;
+				case SDL_KEYDOWN:
+					switch (event.key.keysym.sym) {
+						case SDLK_ESCAPE:
+							quit = true;
+							break;
+						default:
+							break;
+					}
+					break;
+				default:
+					break;
+					
 			}
 		}
+
+		//Body
+		uint32_t image_index;
+		vkAcquireNextImageKHR(vulkan_device, vulkan_swapchain, UINT64_MAX, image_available_semaphore, VK_NULL_HANDLE, &image_index);
+
+		VkSemaphore wait_semaphores[] = {image_available_semaphore};
+		VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+		VkSemaphore signal_semaphores[] = {render_finished_semaphore};
+
+		VkSubmitInfo submit_info = {
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores = wait_semaphores,
+			.pWaitDstStageMask = wait_stages,
+			.commandBufferCount = 1,
+			.pCommandBuffers = &command_buffers[image_index],
+			.signalSemaphoreCount = 1,
+			.pSignalSemaphores = signal_semaphores
+		};
+
+		assert(vkQueueSubmit(device_queue, 1, &submit_info, VK_NULL_HANDLE) == VK_SUCCESS);
+
+		VkSwapchainKHR swapchains[] = {vulkan_swapchain};
+
+		VkPresentInfoKHR present_info = {
+			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores = signal_semaphores,
+			.swapchainCount = 1,
+			.pSwapchains = swapchains,
+			.pImageIndices = &image_index,
+			.pResults = NULL // Optional
+		};
+
+		//assuming present ation and graphics queues are the same one
+		vkQueuePresentKHR(device_queue, &present_info);
+
 	}
 
+	//Cleaning
 	for (uint32_t i = 0; i < swapchain_images_count; ++i) {
 		vkDestroyImageView(vulkan_device, swapchain_images_views[i], NULL);
 		vkDestroyFramebuffer(vulkan_device, swapchain_frame_buffers[i], NULL);
 	}
+
+	vkDestroySemaphore(vulkan_device, image_available_semaphore, NULL);
+	vkDestroySemaphore(vulkan_device, render_finished_semaphore, NULL);
 
 	vkDestroyCommandPool(vulkan_device, command_pool, NULL);
 	vkDestroyPipeline(vulkan_device, graphics_pipeline, NULL);
