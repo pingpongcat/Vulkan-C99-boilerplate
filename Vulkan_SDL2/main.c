@@ -17,6 +17,8 @@ static size_t fileGetLenght(FILE *file);
 
 VkShaderModule VLK_CreateShaderModule(char *filename);
 
+const int MAX_FRAMES_IN_FLIGHT = 2;
+
 int main(void)
 {
 	SDL_Init(SDL_INIT_VIDEO);
@@ -70,8 +72,6 @@ int main(void)
 
 	uint32_t queue_family_count = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, NULL);
-
-	printf("Que family count %d\n", queue_family_count);
 
 	VkQueueFamilyProperties queue_family_properties[queue_family_count];
 	assert(queue_family_count);
@@ -425,17 +425,27 @@ int main(void)
 		assert(vkEndCommandBuffer(command_buffers[i]) == VK_SUCCESS);
 	}
 
-
 	VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 
-	VkSemaphore image_available_semaphore = VK_NULL_HANDLE;
-	assert(vkCreateSemaphore(vulkan_device, &semaphore_info, NULL, &image_available_semaphore) == VK_SUCCESS);
-
-	VkSemaphore render_finished_semaphore = VK_NULL_HANDLE;
-	assert(vkCreateSemaphore(vulkan_device, &semaphore_info, NULL, &render_finished_semaphore) == VK_SUCCESS);
+	VkSemaphore image_available_semaphore[MAX_FRAMES_IN_FLIGHT];
+	VkSemaphore render_finished_semaphore[MAX_FRAMES_IN_FLIGHT];
 	
+	VkFenceCreateInfo fence_info = {
+		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+		.flags = VK_FENCE_CREATE_SIGNALED_BIT
+	};
 
+	VkFence in_flight_fence[MAX_FRAMES_IN_FLIGHT];
+
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+		assert(vkCreateSemaphore(vulkan_device, &semaphore_info, NULL, &image_available_semaphore[i]) == VK_SUCCESS);
+		assert(vkCreateSemaphore(vulkan_device, &semaphore_info, NULL, &render_finished_semaphore[i]) == VK_SUCCESS);
+		assert(vkCreateFence(vulkan_device, &fence_info, NULL, &in_flight_fence[i]) == VK_SUCCESS);
+	}
+
+	size_t current_frame = 0;
 	bool quit = false;
+
 	SDL_Event event;
 	while( !quit ){
 		while( SDL_PollEvent( &event ) != 0 ){
@@ -457,14 +467,16 @@ int main(void)
 					
 			}
 		}
-
 		//Body
-		uint32_t image_index;
-		vkAcquireNextImageKHR(vulkan_device, vulkan_swapchain, UINT64_MAX, image_available_semaphore, VK_NULL_HANDLE, &image_index);
+		vkWaitForFences(vulkan_device, 1, &in_flight_fence[current_frame], VK_TRUE, UINT64_MAX);
+		vkResetFences(vulkan_device, 1, &in_flight_fence[current_frame]);
 
-		VkSemaphore wait_semaphores[] = {image_available_semaphore};
+		uint32_t image_index;
+		vkAcquireNextImageKHR(vulkan_device, vulkan_swapchain, UINT64_MAX, image_available_semaphore[current_frame], VK_NULL_HANDLE, &image_index);
+
+		VkSemaphore wait_semaphores[] = {image_available_semaphore[current_frame]};
 		VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-		VkSemaphore signal_semaphores[] = {render_finished_semaphore};
+		VkSemaphore signal_semaphores[] = {render_finished_semaphore[current_frame]};
 
 		VkSubmitInfo submit_info = {
 			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -477,7 +489,7 @@ int main(void)
 			.pSignalSemaphores = signal_semaphores
 		};
 
-		assert(vkQueueSubmit(device_queue, 1, &submit_info, VK_NULL_HANDLE) == VK_SUCCESS);
+		assert(vkQueueSubmit(device_queue, 1, &submit_info, in_flight_fence[current_frame]) == VK_SUCCESS);
 
 		VkSwapchainKHR swapchains[] = {vulkan_swapchain};
 
@@ -493,17 +505,22 @@ int main(void)
 
 		//assuming present ation and graphics queues are the same one
 		vkQueuePresentKHR(device_queue, &present_info);
-
+		current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
+
+	vkDeviceWaitIdle(vulkan_device);
 
 	//Cleaning
 	for (uint32_t i = 0; i < swapchain_images_count; ++i) {
 		vkDestroyImageView(vulkan_device, swapchain_images_views[i], NULL);
 		vkDestroyFramebuffer(vulkan_device, swapchain_frame_buffers[i], NULL);
+		vkDestroyFence(vulkan_device, in_flight_fence[i], NULL);
 	}
-
-	vkDestroySemaphore(vulkan_device, image_available_semaphore, NULL);
-	vkDestroySemaphore(vulkan_device, render_finished_semaphore, NULL);
+	
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+		vkDestroySemaphore(vulkan_device, image_available_semaphore[i], NULL);
+		vkDestroySemaphore(vulkan_device, render_finished_semaphore[i], NULL);
+	}
 
 	vkDestroyCommandPool(vulkan_device, command_pool, NULL);
 	vkDestroyPipeline(vulkan_device, graphics_pipeline, NULL);
