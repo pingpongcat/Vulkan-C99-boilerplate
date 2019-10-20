@@ -410,22 +410,40 @@ int main(void)
 	VmaAllocator allocator = VK_NULL_HANDLE;
 	assert(vmaCreateAllocator(&allocator_info, &allocator) == VK_SUCCESS);
 
-	VkBufferCreateInfo vertex_buffer_info = {
+	VkBufferCreateInfo vb_info = {
 		.sType =  VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.size = sizeof(vertices),
-		.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+		.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
 	};
 
-	VmaAllocationCreateInfo allocInfo = {.usage = VMA_MEMORY_USAGE_GPU_ONLY};
-	VkBuffer vertex_buffer = VK_NULL_HANDLE;
-	VmaAllocation allocation = VK_NULL_HANDLE;
+	VmaAllocationCreateInfo vb_alloc_create_info = {
+		.usage = VMA_MEMORY_USAGE_CPU_ONLY,
+		.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT
+	};
 
-	assert(vmaCreateBuffer(allocator, &vertex_buffer_info, &allocInfo, &vertex_buffer, &allocation, NULL) == VK_SUCCESS);
+	VkBuffer staging_vb = VK_NULL_HANDLE;
+	VmaAllocation staging_vb_allocation = VK_NULL_HANDLE;
+	VmaAllocationInfo staging_vb_alloc_info = {0};
+
+	assert(vmaCreateBuffer(allocator, &vb_info, &vb_alloc_create_info, &staging_vb, &staging_vb_allocation, &staging_vb_alloc_info) == VK_SUCCESS );
+	memcpy(staging_vb_alloc_info.pMappedData, vertices, sizeof(vertices));
+
+	vb_info.usage =  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	vb_alloc_create_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	vb_alloc_create_info.flags = 0;
+
+	VkBuffer vb = VK_NULL_HANDLE;
+	VmaAllocation vb_allocation = VK_NULL_HANDLE;
+	assert(vmaCreateBuffer(allocator, &vb_info, &vb_alloc_create_info, &vb, &vb_allocation, NULL) == VK_SUCCESS);
+
 
 	void* mapped_data;
-	vmaMapMemory(allocator, allocation, &mapped_data);
+	vmaMapMemory(allocator, vb_allocation, &mapped_data);
 	memcpy(mapped_data, &vertices, sizeof(vertices));
-	vmaUnmapMemory(allocator, allocation);
+	vmaUnmapMemory(allocator, vb_allocation);
+
+	vmaDestroyBuffer(allocator, staging_vb, staging_vb_allocation);
 
 	VkCommandPoolCreateInfo pool_info = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -477,7 +495,7 @@ int main(void)
 		vkCmdBindPipeline(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
 
 		VkDeviceSize offsets[] = {0};
-		vkCmdBindVertexBuffers(command_buffers[i], 0, 1, &(VkBuffer){vertex_buffer}, offsets);
+		vkCmdBindVertexBuffers(command_buffers[i], 0, 1, &(VkBuffer){vb}, offsets);
 
 		vkCmdDraw(command_buffers[i], 3, 1, 0, 0);
 		vkCmdEndRenderPass(command_buffers[i]);
@@ -565,7 +583,7 @@ int main(void)
 	vkDeviceWaitIdle(vulkan_device);
 
 	//Cleaning
-	vmaDestroyBuffer(allocator, vertex_buffer, allocation);
+	vmaDestroyBuffer(allocator, vb, vb_allocation);
 	vmaDestroyAllocator(allocator);
 
 	for (uint32_t i = 0; i < swapchain_images_count; ++i) {
