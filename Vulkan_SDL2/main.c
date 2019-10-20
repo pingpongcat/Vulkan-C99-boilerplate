@@ -6,6 +6,7 @@
 #include <SDL2/SDL.h>
 #include <vulkan/vulkan.h>
 #include <SDL2/SDL_vulkan.h>
+#include "vk_mem_alloc.h"
 
 static VkInstance vulkan_instance = VK_NULL_HANDLE;
 static VkSurfaceKHR vulkan_surface = VK_NULL_HANDLE;
@@ -14,8 +15,16 @@ static VkSwapchainKHR vulkan_swapchain = VK_NULL_HANDLE;
 
 int clamp(int32_t i, int32_t min, int32_t max);
 static size_t fileGetLenght(FILE *file);
+uint32_t VLK_FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
 VkShaderModule VLK_CreateShaderModule(char *filename);
+
+float vertices[] = {
+    // positions   // colors
+     0.0f,  -0.5f,  1.0f, 0.0f, 0.0f,
+     0.5f,   0.5f,  0.0f, 1.0f, 0.0f,
+    -0.5f,   0.5f,  0.0f, 0.0f, 1.0f
+};    
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -75,12 +84,12 @@ int main(void)
 
 	VkQueueFamilyProperties queue_family_properties[queue_family_count];
 	assert(queue_family_count);
-
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &device, queue_family_properties);
-	assert(queue_family_properties[0].queueFlags & VK_QUEUE_GRAPHICS_BIT); //first device queu
+
+	assert(queue_family_properties[0].queueFlags & VK_QUEUE_GRAPHICS_BIT); //assuming first device queu is the one that support graphics
 
 	VkBool32 surface_support;
-	vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, 0, vulkan_surface, &surface_support);
+	vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, 0, vulkan_surface, &surface_support); //
 	assert(surface_support);
 
 	char const * device_extensions [] = {"VK_KHR_swapchain"};
@@ -133,6 +142,7 @@ int main(void)
 
 	int32_t vulkan_window_width, vulkan_window_height;
 	SDL_Vulkan_GetDrawableSize(vulkan_window, &vulkan_window_width, &vulkan_window_height);
+
 	vulkan_window_width = clamp(vulkan_window_width, surface_capabilities.minImageExtent.width, surface_capabilities.maxImageExtent.width);
 	vulkan_window_height = clamp(vulkan_window_height, surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height);
 
@@ -193,7 +203,6 @@ int main(void)
 				.layerCount = 1
 			}
 		};
-
 		assert(vkCreateImageView(vulkan_device, &image_view_create_info, NULL, &swapchain_images_views[i]) == VK_SUCCESS);
 	}
 
@@ -224,6 +233,8 @@ int main(void)
 				.samples = VK_SAMPLE_COUNT_1_BIT,
 				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 				.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 		},
@@ -267,6 +278,27 @@ int main(void)
 		assert(vkCreateFramebuffer(vulkan_device, &framebuffer_info, NULL, &swapchain_frame_buffers[i]) == VK_SUCCESS);
 	}
 
+	VkVertexInputBindingDescription bindings_description = {
+		.binding = 0,
+		.stride = 5 * sizeof(float),
+		.inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+	};
+
+	VkVertexInputAttributeDescription attribute_description[2] = {
+		{
+			.binding = 0,
+			.location = 0,
+			.format = VK_FORMAT_R32G32_SFLOAT,
+			.offset = 0
+		},
+		{
+			.binding = 0,
+			.location = 1,
+			.format = VK_FORMAT_R32G32B32_SFLOAT,
+			.offset = 2 * sizeof(float)
+		}
+	};
+
 	VkPipelineLayoutCreateInfo pipeline_layout_info = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = 0, // Optional
@@ -284,10 +316,10 @@ int main(void)
 		.pStages = shader_stages,
 		.pVertexInputState = &(VkPipelineVertexInputStateCreateInfo) {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-			.vertexBindingDescriptionCount = 0,
-			.pVertexBindingDescriptions = NULL,
-			.vertexAttributeDescriptionCount = 0,
-			.pVertexAttributeDescriptions = NULL
+			.vertexBindingDescriptionCount = 1,
+			.pVertexBindingDescriptions = &bindings_description,
+			.vertexAttributeDescriptionCount = 2,
+			.pVertexAttributeDescriptions = attribute_description
 		},
 		.pInputAssemblyState = &(VkPipelineInputAssemblyStateCreateInfo) {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
@@ -370,6 +402,30 @@ int main(void)
 	VkPipeline graphics_pipeline = VK_NULL_HANDLE;
 	assert(vkCreateGraphicsPipelines(vulkan_device, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &graphics_pipeline) == VK_SUCCESS);
 
+	VmaAllocatorCreateInfo allocator_info = {
+		.physicalDevice = physical_device,
+		.device = vulkan_device
+	};
+
+	VmaAllocator allocator = VK_NULL_HANDLE;
+	assert(vmaCreateAllocator(&allocator_info, &allocator) == VK_SUCCESS);
+
+	VkBufferCreateInfo vertex_buffer_info = {
+		.sType =  VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+		.size = sizeof(vertices),
+		.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+	};
+
+	VmaAllocationCreateInfo allocInfo = {.usage = VMA_MEMORY_USAGE_GPU_ONLY};
+	VkBuffer vertex_buffer = VK_NULL_HANDLE;
+	VmaAllocation allocation = VK_NULL_HANDLE;
+
+	assert(vmaCreateBuffer(allocator, &vertex_buffer_info, &allocInfo, &vertex_buffer, &allocation, NULL) == VK_SUCCESS);
+
+	void* mapped_data;
+	vmaMapMemory(allocator, allocation, &mapped_data);
+	memcpy(mapped_data, &vertices, sizeof(vertices));
+	vmaUnmapMemory(allocator, allocation);
 
 	VkCommandPoolCreateInfo pool_info = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -419,6 +475,10 @@ int main(void)
 
 		vkCmdBeginRenderPass(command_buffers[i], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 		vkCmdBindPipeline(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
+
+		VkDeviceSize offsets[] = {0};
+		vkCmdBindVertexBuffers(command_buffers[i], 0, 1, &(VkBuffer){vertex_buffer}, offsets);
+
 		vkCmdDraw(command_buffers[i], 3, 1, 0, 0);
 		vkCmdEndRenderPass(command_buffers[i]);
 
@@ -442,6 +502,7 @@ int main(void)
 		assert(vkCreateSemaphore(vulkan_device, &semaphore_info, NULL, &render_finished_semaphore[i]) == VK_SUCCESS);
 		assert(vkCreateFence(vulkan_device, &fence_info, NULL, &in_flight_fence[i]) == VK_SUCCESS);
 	}
+
 
 	size_t current_frame = 0;
 	bool quit = false;
@@ -474,35 +535,28 @@ int main(void)
 		uint32_t image_index;
 		vkAcquireNextImageKHR(vulkan_device, vulkan_swapchain, UINT64_MAX, image_available_semaphore[current_frame], VK_NULL_HANDLE, &image_index);
 
-		VkSemaphore wait_semaphores[] = {image_available_semaphore[current_frame]};
-		VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-		VkSemaphore signal_semaphores[] = {render_finished_semaphore[current_frame]};
-
 		VkSubmitInfo submit_info = {
 			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 			.waitSemaphoreCount = 1,
-			.pWaitSemaphores = wait_semaphores,
-			.pWaitDstStageMask = wait_stages,
+			.pWaitSemaphores = &image_available_semaphore[current_frame], // wait_semaphores,
+			.pWaitDstStageMask = &(VkPipelineStageFlags){VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT}, // wait_stages,
 			.commandBufferCount = 1,
 			.pCommandBuffers = &command_buffers[image_index],
 			.signalSemaphoreCount = 1,
-			.pSignalSemaphores = signal_semaphores
+			.pSignalSemaphores = &render_finished_semaphore[current_frame] // signal_semaphores
 		};
 
 		assert(vkQueueSubmit(device_queue, 1, &submit_info, in_flight_fence[current_frame]) == VK_SUCCESS);
 
-		VkSwapchainKHR swapchains[] = {vulkan_swapchain};
-
 		VkPresentInfoKHR present_info = {
 			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 			.waitSemaphoreCount = 1,
-			.pWaitSemaphores = signal_semaphores,
+			.pWaitSemaphores = &render_finished_semaphore[current_frame], // signal_semaphores,
 			.swapchainCount = 1,
-			.pSwapchains = swapchains,
+			.pSwapchains = &vulkan_swapchain,
 			.pImageIndices = &image_index,
 			.pResults = NULL // Optional
 		};
-
 		//assuming present ation and graphics queues are the same one
 		vkQueuePresentKHR(device_queue, &present_info);
 		current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -511,6 +565,9 @@ int main(void)
 	vkDeviceWaitIdle(vulkan_device);
 
 	//Cleaning
+	vmaDestroyBuffer(allocator, vertex_buffer, allocation);
+	vmaDestroyAllocator(allocator);
+
 	for (uint32_t i = 0; i < swapchain_images_count; ++i) {
 		vkDestroyImageView(vulkan_device, swapchain_images_views[i], NULL);
 		vkDestroyFramebuffer(vulkan_device, swapchain_frame_buffers[i], NULL);
@@ -592,3 +649,4 @@ VkShaderModule VLK_CreateShaderModule(char *filename){
 
 	return shader_module;
 }
+
